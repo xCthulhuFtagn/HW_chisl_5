@@ -235,10 +235,10 @@ int main()
 		cout << "Calculations by Adams : " << endl;
 		tmp_map = RungeKutt4(data, acc, Derivative);
 		tmp = x_0;
-		double step = sqrt(acc);
-		while (tmp <= end - 4*step) {
+		double step = sqrt(acc), top = tmp_map.rbegin()->first;
+		while (top <= end - step) {
 			tmp_map = Adams(tmp_map, acc, Derivative);
-			tmp += step;
+			top = tmp_map.rbegin()->first;
 		}
 		for (const auto& el : tmp_map) {
 			cout << el.first << "\t" << el.second << endl;
