@@ -38,7 +38,7 @@ map<double, double> RungeKutt4(map<double, double> data, double accuracy, double
 }
 
 map<double, double> Adams(map<double, double> data, double accuracy, double (*func) (double, double)) {
-    double x_i = data.rbegin()->first, y_i = data.rbegin()->second, step = accuracy;
+    double x_i = data.rbegin()->first, y_i = data.rbegin()->second, step = sqrt(accuracy);
     map<double, double> :: iterator runner  = data.end();
     runner--;   runner--;
     data[x_i + step] = y_i + step * (3 / 2 * func(x_i, y_i) - 1 / 2 * func(runner->first, runner->second));
@@ -48,10 +48,6 @@ map<double, double> Adams(map<double, double> data, double accuracy, double (*fu
 
 double Derivative(double x, double y) {
     return cos(y) / (1.25 + x) - 0.1 * pow(y, 2);
-}
-
-double f(double x, double y) {
-    return cos(2 * x + y) + 1.5 * (x - y);
 }
 
 // главная функция обработки сообщений
@@ -101,13 +97,13 @@ void  DrawWindow(valarray<double>* data, double(*f)(valarray<double>*, double)) 
 	double y, x;
 	y_min = data[1].min(); x_min = data[0].min();
 	y_max = data[1].max(); x_max = data[0].max();
-	diap_x = (x_max - x_min) / 10;
-	diap_y = (y_max - y_min) / 10;                             //диапазон делений для оY 
+	diap_x = (x_max - x_min) / data[0].size();
+	diap_y = (y_max - y_min) / data[1].size();                             //диапазон делений для оY 
 	y_max += diap_y; y_min -= diap_y;
 	HDC hDC = GetDC(window);                       //настройка okna для рисования 
 	HPEN Pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));     //ручка для разметки 
 	HPEN Pen1 = CreatePen(PS_SOLID, 2, RGB(0, 255, 0));        //ручка для графика 
-	HPEN Pen2 = CreatePen(PS_SOLID, 8, RGB(255, 0, 0));        //ручка для точек
+	HPEN Pen2 = CreatePen(PS_SOLID, 4, RGB(255, 0, 0));        //ручка для точек
 	//через прямоугольник rect описывается okno 
 	RECT rect;
 	GetClientRect(window, &rect);
@@ -148,14 +144,9 @@ void  DrawWindow(valarray<double>* data, double(*f)(valarray<double>*, double)) 
 			}
 			//вывод графика и точек, по которому он строится
 			SelectObject(hDC, Pen1);
-			for (x = x_min; x < x_max; x += 1e-3) {
-				MoveToEx(hDC, width * (x - x_min) / (x_max - x_min), height * (y_max - f(data, x)) / (y_max - y_min), NULL);
-				LineTo(hDC, width * (x + 1e-3 - x_min) / (x_max - x_min), height * (y_max - f(data, x + 1e-3)) / (y_max - y_min));
-			}
-			SelectObject(hDC, Pen2);
-			for (unsigned i = 0; i < data[0].size(); ++i) {
+			for (unsigned i = 0; i < data[0].size()-1; ++i) {
 				MoveToEx(hDC, width * (data[0][i] - x_min) / (x_max - x_min), height * (y_max - data[1][i]) / (y_max - y_min), NULL);
-				LineTo(hDC, width * (data[0][i] - x_min) / (x_max - x_min), height * (y_max - data[1][i]) / (y_max - y_min));
+				LineTo(hDC, width * (data[0][i+1] - x_min) / (x_max - x_min), height * (y_max - data[1][i+1]) / (y_max - y_min));
 			}
 		}
 	}
@@ -244,9 +235,10 @@ int main()
 		cout << "Calculations by Adams : " << endl;
 		tmp_map = RungeKutt4(data, acc, Derivative);
 		tmp = x_0;
-		while (tmp <= end - acc) {
+		double step = sqrt(acc);
+		while (tmp <= end - 4*step) {
 			tmp_map = Adams(tmp_map, acc, Derivative);
-			tmp += acc;
+			tmp += step;
 		}
 		for (const auto& el : tmp_map) {
 			cout << el.first << "\t" << el.second << endl;
