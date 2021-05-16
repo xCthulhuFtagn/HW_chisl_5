@@ -9,24 +9,15 @@
 #undef max
 using namespace std;
 
-double Trapezoid(double (*func)(double), double bot, double top, unsigned n) {
-    double S_n = (func(top) + func(bot)) / 2, h = (top - bot) / n;
-    for (unsigned i = 1; i < n; ++i) {
-        S_n += func(bot + h * i);
-    }
-    S_n *= h;
-    return S_n;
-}
-
-map<double, double> Euler(map<double, double> data, double accuracy, double (*func)(double, double)) {
-    double x_i = data.rbegin()->first, y_i = data.rbegin()->second, step = accuracy;
-    data[x_i + step] = y_i + step * func(x_i, y_i);
+map<double, double> Euler(map<double, double> data, double step, double (*func)(double, double)) {
+    double x_i = data.rbegin()->first;
+	data[x_i + step] = data[x_i] + step * func(x_i + step / 2, data[x_i] + step * func(x_i, data[x_i]) / 2) - data[x_i];
     return data;
     //O(h)
 }
 
-map<double, double> RungeKutt4(map<double, double> data, double accuracy, double (*func) (double, double)) {
-    double x_i = data.rbegin()->first, y_i = data.rbegin()->second, step = sqrt(sqrt(accuracy));
+map<double, double> RungeKutt4(map<double, double> data, double acc, double step, double (*func) (double, double)) {
+    double x_i = data.rbegin()->first, y_i = data.rbegin()->second;
     double K1, K2, K3, K4;
     K1 = step * func(x_i, y_i);
     K2 = step * func(x_i + step / 2, y_i + K1 / 2);
@@ -37,11 +28,9 @@ map<double, double> RungeKutt4(map<double, double> data, double accuracy, double
     //O(h^4)
 }
 
-map<double, double> Adams(map<double, double> data, double accuracy, double (*func) (double, double)) {
-    double x_i = data.rbegin()->first, y_i = data.rbegin()->second, step = sqrt(accuracy);
-    map<double, double> :: iterator runner  = data.end();
-    runner--;   runner--;
-    data[x_i + step] = y_i + step * (3 / 2 * func(x_i, y_i) - 1 / 2 * func(runner->first, runner->second));
+map<double, double> Adams(map<double, double> data, double acc, double step, double (*func) (double, double)) {
+    double x_i = data.crbegin()->first, tmp;
+	data[x_i + step] = data[x_i] + step * (3 / 2 * func(x_i, data[x_i]) - 1 / 2 * func(x_i - step, data[x_i - step]));
     return data;
     //O(h^2)
 }
@@ -97,13 +86,13 @@ void  DrawWindow(valarray<double>* data, double(*f)(valarray<double>*, double)) 
 	double y, x;
 	y_min = data[1].min(); x_min = data[0].min();
 	y_max = data[1].max(); x_max = data[0].max();
-	diap_x = (x_max - x_min) / data[0].size();
-	diap_y = (y_max - y_min) / data[1].size();                             //диапазон делений для оY 
+	diap_x = (x_max - x_min) / 10;
+	diap_y = (y_max - y_min) / 10;                             //диапазон делений для оY 
 	y_max += diap_y; y_min -= diap_y;
 	HDC hDC = GetDC(window);                       //настройка okna для рисования 
 	HPEN Pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));     //ручка для разметки 
 	HPEN Pen1 = CreatePen(PS_SOLID, 2, RGB(0, 255, 0));        //ручка для графика 
-	HPEN Pen2 = CreatePen(PS_SOLID, 4, RGB(255, 0, 0));        //ручка для точек
+	HPEN Pen2 = CreatePen(PS_SOLID, 8, RGB(255, 0, 0));        //ручка для точек
 	//через прямоугольник rect описывается okno 
 	RECT rect;
 	GetClientRect(window, &rect);
@@ -144,9 +133,14 @@ void  DrawWindow(valarray<double>* data, double(*f)(valarray<double>*, double)) 
 			}
 			//вывод графика и точек, по которому он строится
 			SelectObject(hDC, Pen1);
-			for (unsigned i = 0; i < data[0].size()-1; ++i) {
+			for (x = x_min; x < x_max; x += 1e-3) {
+				MoveToEx(hDC, width * (x - x_min) / (x_max - x_min), height * (y_max - f(data, x)) / (y_max - y_min), NULL);
+				LineTo(hDC, width * (x + 1e-3 - x_min) / (x_max - x_min), height * (y_max - f(data, x + 1e-3)) / (y_max - y_min));
+			}
+			SelectObject(hDC, Pen2);
+			for (unsigned i = 0; i < data[0].size(); ++i) {
 				MoveToEx(hDC, width * (data[0][i] - x_min) / (x_max - x_min), height * (y_max - data[1][i]) / (y_max - y_min), NULL);
-				LineTo(hDC, width * (data[0][i+1] - x_min) / (x_max - x_min), height * (y_max - data[1][i+1]) / (y_max - y_min));
+				LineTo(hDC, width * (data[0][i] - x_min) / (x_max - x_min), height * (y_max - data[1][i]) / (y_max - y_min));
 			}
 		}
 	}
@@ -182,15 +176,15 @@ int main()
 {
     map<double, double> data, tmp_map;
 	valarray<double> data1[2];
-    double tmp, acc, end, x_0;
-	unsigned choice;
+    double tmp, acc, step, x_0;
+	unsigned choice, order_acc;
     cout << "Enter x_0 and y_0 : ";
     cin >> x_0;
     cin >> data[x_0];
     cout << "Enter your accuracy: ";
     cin >> acc;
-    cout << "Enter end of segment : ";
-    cin >> end;
+    cout << "Enter step: ";
+    cin >> step;
 	cout << "Сhoose a method:"<<endl;
 	cout << "1) Calculate by Euler" << endl;
 	cout << "2) Calculate by Runge - Kutt" << endl;
@@ -201,12 +195,18 @@ int main()
 		return -1;
 	}
 	else if (choice == 1) {
-		tmp_map = Euler(data, acc, Derivative);
-		tmp = x_0;
-		while (tmp <= end - acc) {
-			tmp_map = Euler(tmp_map, acc, Derivative);
-			tmp += acc;
-		}
+		cout << "Calculations by Euler : " << endl;
+		double last1, last2;
+		step = acc / 10.0;
+		order_acc = 1;
+		tmp_map = data;
+		do{
+			data = Euler(data, step, Derivative);
+			last1 = data.crbegin()->second;
+			tmp_map = Euler(tmp_map, step/2.0, Derivative);
+			tmp_map = Euler(tmp_map, step / 2.0, Derivative);
+			last2 = tmp_map.crbegin()->second;
+		} while (fabs(last1 - last2) > acc * (pow(2, order_acc)-1));
 		for (const auto& el : tmp_map) {
 			cout << el.first << "\t" << el.second << endl;
 		}
@@ -215,13 +215,16 @@ int main()
 	}
 	else if (choice == 2) {
 		cout << "Calculations by Runge-Kutt : " << endl;
-		double step = sqrt(sqrt(acc));
-		tmp_map = RungeKutt4(data, acc, Derivative);
-		tmp = x_0;
-		while (tmp <= end - 2 * step) {
-			tmp_map = RungeKutt4(tmp_map, acc, Derivative);
-			tmp += step;
-		}
+		double last1, last2;
+		order_acc = 4;
+		tmp_map = data;
+		do {
+			data = RungeKutt4(data, acc, step, Derivative);
+			last1 = data.crbegin()->second;
+			tmp_map = RungeKutt4(tmp_map, acc, step / 2, Derivative);
+			tmp_map = RungeKutt4(tmp_map, acc, step / 2, Derivative);
+			last2 = tmp_map.crbegin()->second;
+		} while (fabs(last1 - last2) + pow(step,4) < acc*(pow(4,order_acc)-1));
 		for (const auto& el : tmp_map) {
 			cout << el.first << "\t" << el.second << endl;
 			unsigned size = data1[0].size();
@@ -233,13 +236,19 @@ int main()
 	}
 	else if (choice == 3) {
 		cout << "Calculations by Adams : " << endl;
-		tmp_map = RungeKutt4(data, acc, Derivative);
-		tmp = x_0;
-		double step = sqrt(acc), top = tmp_map.rbegin()->first;
-		while (top <= end - step) {
-			tmp_map = Adams(tmp_map, acc, Derivative);
-			top = tmp_map.rbegin()->first;
-		}
+		tmp_map = data;
+		data = RungeKutt4(data, acc, step, Derivative);
+		tmp_map = RungeKutt4(tmp_map, acc, step, Derivative);
+		tmp_map = RungeKutt4(tmp_map, acc, step, Derivative);
+		double last1, last2;
+		order_acc = 2;
+		do {
+			data = Adams(data, acc, step, Derivative);
+			last1 = data.crbegin()->second;
+			tmp_map = Adams(tmp_map, acc, step / 2, Derivative);
+			tmp_map = Adams(tmp_map, acc, step / 2, Derivative);
+			last2 = tmp_map.crbegin()->second;
+		} while (fabs(last1 - last2) > acc * (pow(2, order_acc) - 1));
 		for (const auto& el : tmp_map) {
 			cout << el.first << "\t" << el.second << endl;
 		}
