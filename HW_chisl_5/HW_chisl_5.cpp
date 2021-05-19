@@ -33,7 +33,7 @@ void Adams(map<double, double>& data, double acc, double step, double (*func) (d
 }
 
 double Derivative(double x, double y) {
-    return cos(y) / (1.25 + x) - 0.1 * pow(y, 2);
+	return 1 + 0.8 * y * sin(x) - 2 * pow(y, 2);
 }
 
 // главная функция обработки сообщений
